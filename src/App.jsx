@@ -913,11 +913,15 @@ export default function App() {
   return (
     <>
       <GlobalStyles />
-      <div className="min-h-screen w-full font-app flex justify-center" style={{ background: '#FAF7F2', color: '#1A1A1A' }}>
-        <div className="w-full relative" style={{ maxWidth: 440, background: 'white', minHeight: '100vh', boxShadow: '0 0 60px -20px rgba(0,0,0,0.08)' }}>
+      <div className="app-outer min-h-screen w-full font-app flex justify-center" style={{ background: '#FAF7F2', color: '#1A1A1A' }}>
+        <div className="app-shell w-full relative" style={{ maxWidth: 440, background: 'white', minHeight: '100vh', boxShadow: '0 0 60px -20px rgba(0,0,0,0.08)' }}>
+
+          <SideNav tab={tab} setTab={(t) => { setTab(t); if (flow !== null) closeFlow(); }} settings={settings} />
+
+          <div className="app-content-col">
 
           {flow === null && (
-            <header className="px-5 flex items-center justify-between sticky top-0 z-30" style={{ paddingTop: 20, paddingBottom: 16, background: 'white', borderBottom: '1px solid #F0E8DA' }}>
+            <header className="app-header-home px-5 flex items-center justify-between sticky top-0 z-30" style={{ paddingTop: 20, paddingBottom: 16, background: 'white', borderBottom: '1px solid #F0E8DA' }}>
               <BrandLogo />
               <div className="rounded-full flex items-center justify-center font-semibold" style={{ width: 40, height: 40, background: '#F5EDE0', color: '#9C7245', fontSize: 13 }}>
                 {((settings.companyName || '').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()) || 'AM'}
@@ -950,7 +954,7 @@ export default function App() {
             </header>
           )}
 
-          <main className={flow === 'preview' ? '' : 'px-5'} style={{ paddingTop: flow === 'preview' ? 0 : 20, paddingBottom: flow === 'preview' ? 0 : 96 }}>
+          <main className={flow === 'preview' ? '' : 'px-5 app-main-pad'} style={{ paddingTop: flow === 'preview' ? 0 : 20, paddingBottom: flow === 'preview' ? 0 : 96 }}>
             {flow === null && tab === 'ponudbe'    && <HomeScreen offers={offers} settings={settings} onNew={startNewOffer} onPreview={openOfferAsPreview} onEdit={editOffer} onDelete={deleteOffer} onSetStatus={setOfferStatus} showToast={showToast} />}
             {flow === null && tab === 'stranke'    && <CustomersScreen customers={customers} setCustomers={setCustomers} />}
             {flow === null && tab === 'cenik'      && <PriceListScreen templates={templates} setTemplates={setTemplates} industries={industries} setIndustries={setIndustries} showToast={showToast} />}
@@ -990,6 +994,8 @@ export default function App() {
               <Check size={16} /> {toast}
             </div>
           )}
+
+          </div>{/* app-content-col */}
         </div>
       </div>
     </>
@@ -2557,7 +2563,7 @@ function BottomNav({ tab, setTab }) {
     { id: 'nastavitve', label: 'Nastavitve', icon: SettingsIcon },
   ];
   return (
-    <nav className="fixed left-0 right-0 z-40" style={{ bottom: 0 }}>
+    <nav className="bottom-nav-mobile fixed left-0 right-0 z-40" style={{ bottom: 0 }}>
       <div className="mx-auto" style={{ maxWidth: 440, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', borderTop: '1px solid #F0E8DA', padding: '8px 8px 12px' }}>
         <div className="grid grid-cols-5 gap-1">
           {items.map((it) => {
@@ -2576,6 +2582,65 @@ function BottomNav({ tab, setTab }) {
         </div>
       </div>
     </nav>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Desktop sidebar nav
+// --------------------------------------------------------------------------
+function SideNav({ tab, setTab, settings }) {
+  const items = [
+    { id: 'ponudbe',    label: 'Ponudbe',    icon: Home },
+    { id: 'stranke',    label: 'Stranke',    icon: Users },
+    { id: 'cenik',      label: 'Cenik',      icon: Tag },
+    { id: 'predloge',   label: 'Predloge',   icon: FileText },
+    { id: 'nastavitve', label: 'Nastavitve', icon: SettingsIcon },
+  ];
+  const initials = ((settings.companyName || '').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()) || 'AM';
+  return (
+    <aside className="app-sidebar">
+      <div style={{ padding: '24px 16px 20px' }}>
+        <BrandLogo />
+      </div>
+      <nav style={{ flex: 1, padding: '0 8px' }}>
+        {items.map((it) => {
+          const active = it.id === tab;
+          const Icon = it.icon;
+          return (
+            <button
+              key={it.id}
+              onClick={() => setTab(it.id)}
+              className={`w-full rounded-xl flex items-center${active ? '' : ' btn-ghost'}`}
+              style={{
+                padding: '10px 12px',
+                gap: 10,
+                marginBottom: 2,
+                color: active ? '#B8895A' : '#5C544A',
+                background: active ? '#F5EDE0' : 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: active ? 600 : 500,
+                fontSize: 14,
+              }}
+            >
+              <Icon size={18} strokeWidth={active ? 2.4 : 1.8} />
+              {it.label}
+            </button>
+          );
+        })}
+      </nav>
+      <div className="flex items-center" style={{ gap: 10, padding: '12px 16px', borderTop: '1px solid #F0E8DA' }}>
+        <div className="rounded-full flex items-center justify-center font-semibold flex-shrink-0" style={{ width: 36, height: 36, background: '#F5EDE0', color: '#9C7245', fontSize: 12 }}>
+          {initials}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div className="font-semibold" style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#1A1A1A' }}>
+            {settings.companyName || 'Moje podjetje'}
+          </div>
+          <div style={{ fontSize: 11, color: '#9A9088', marginTop: 1 }}>kvota.si</div>
+        </div>
+      </div>
+    </aside>
   );
 }
 
@@ -2655,6 +2720,37 @@ function GlobalStyles() {
 
       @keyframes toastPop { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
       .toast-pop { animation: toastPop 0.25s ease-out; }
+
+      /* ---- Desktop two-column layout (≥768px) ---- */
+      .app-sidebar { display: none; }
+
+      @media (min-width: 768px) {
+        .app-shell {
+          max-width: 800px !important;
+          display: flex !important;
+          flex-direction: row !important;
+        }
+        .app-sidebar {
+          display: flex !important;
+          flex-direction: column;
+          width: 220px;
+          flex-shrink: 0;
+          border-right: 1px solid #F0E8DA;
+          position: sticky;
+          top: 0;
+          height: 100vh;
+          overflow-y: auto;
+        }
+        .app-content-col {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+        }
+        .app-header-home { display: none !important; }
+        .bottom-nav-mobile { display: none !important; }
+        .app-main-pad { padding-bottom: 48px !important; }
+      }
     `}</style>
   );
 }
