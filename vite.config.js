@@ -5,5 +5,5 @@ import react from '@vitejs/plugin-react';
 // If you use a custom domain, set this to '/'
 export default defineConfig({
   plugins: [react()],
-  base: '/kvota-si/',
+  base: '/kvota.si/',
 });
