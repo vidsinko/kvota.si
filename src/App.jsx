@@ -914,7 +914,7 @@ export default function App() {
     <>
       <GlobalStyles />
       <div className="app-outer min-h-screen w-full font-app flex justify-center" style={{ background: '#FAF7F2', color: '#1A1A1A' }}>
-        <div className="app-shell w-full relative" style={{ maxWidth: 440, background: 'white', minHeight: '100vh', boxShadow: '0 0 60px -20px rgba(0,0,0,0.08)' }}>
+        <div className={`app-shell w-full relative${flow === 'parameters' ? ' app-shell-split' : ''}`} style={{ maxWidth: 440, background: 'white', minHeight: '100vh', boxShadow: '0 0 60px -20px rgba(0,0,0,0.08)' }}>
 
           <SideNav tab={tab} setTab={(t) => { setTab(t); if (flow !== null) closeFlow(); }} settings={settings} />
 
@@ -954,36 +954,42 @@ export default function App() {
             </header>
           )}
 
-          <main className={flow === 'preview' ? '' : 'px-5 app-main-pad'} style={{ paddingTop: flow === 'preview' ? 0 : 20, paddingBottom: flow === 'preview' ? 0 : 96 }}>
-            {flow === null && tab === 'ponudbe'    && <HomeScreen offers={offers} settings={settings} onNew={startNewOffer} onPreview={openOfferAsPreview} onEdit={editOffer} onDelete={deleteOffer} onSetStatus={setOfferStatus} showToast={showToast} />}
-            {flow === null && tab === 'stranke'    && <CustomersScreen customers={customers} setCustomers={setCustomers} />}
-            {flow === null && tab === 'cenik'      && <PriceListScreen templates={templates} setTemplates={setTemplates} industries={industries} setIndustries={setIndustries} showToast={showToast} />}
-            {flow === null && tab === 'predloge'   && <TemplatesScreen offers={offers} onOpen={openOfferAsPreview} />}
-            {flow === null && tab === 'nastavitve' && <SettingsScreen settings={settings} setSettings={setSettings} showToast={showToast} />}
+          <div className={`app-content-body${flow === 'parameters' ? ' app-split-active' : ''}`}>
+            <main className={flow === 'preview' ? '' : 'px-5 app-main-pad app-main-col'} style={{ paddingTop: flow === 'preview' ? 0 : 20, paddingBottom: flow === 'preview' ? 0 : 96 }}>
+              {flow === null && tab === 'ponudbe'    && <HomeScreen offers={offers} settings={settings} onNew={startNewOffer} onPreview={openOfferAsPreview} onEdit={editOffer} onDelete={deleteOffer} onSetStatus={setOfferStatus} showToast={showToast} />}
+              {flow === null && tab === 'stranke'    && <CustomersScreen customers={customers} setCustomers={setCustomers} />}
+              {flow === null && tab === 'cenik'      && <PriceListScreen templates={templates} setTemplates={setTemplates} industries={industries} setIndustries={setIndustries} showToast={showToast} />}
+              {flow === null && tab === 'predloge'   && <TemplatesScreen offers={offers} onOpen={openOfferAsPreview} />}
+              {flow === null && tab === 'nastavitve' && <SettingsScreen settings={settings} setSettings={setSettings} showToast={showToast} />}
 
-            {flow === 'industry'   && draft && <IndustrySelector onPick={pickIndustry} />}
-            {flow === 'client'     && draft && <ClientForm client={draft.client} customers={customers} onChange={updateClient} onPickCustomer={(c) => setDraft((d) => ({ ...d, client: { ...d.client, ...c } }))} onContinue={() => setFlow('parameters')} />}
+              {flow === 'industry'   && draft && <IndustrySelector onPick={pickIndustry} />}
+              {flow === 'client'     && draft && <ClientForm client={draft.client} customers={customers} onChange={updateClient} onPickCustomer={(c) => setDraft((d) => ({ ...d, client: { ...d.client, ...c } }))} onContinue={() => setFlow('parameters')} />}
+              {flow === 'parameters' && draft && (
+                <ParametersForm
+                  draft={draft}
+                  setDraft={setDraft}
+                  onUpdateItem={updateItem}
+                  onAddItem={(item) => setDraft((d) => ({ ...d, items: [...d.items, item] }))}
+                  onRemoveItem={(id) => setDraft((d) => ({ ...d, items: d.items.filter((i) => i.id !== id) }))}
+                  totals={totals}
+                  onGenerate={() => { saveOffer(); setFlow('preview'); }}
+                />
+              )}
+              {flow === 'preview' && draft && (
+                <PDFPreview
+                  draft={draft}
+                  settings={settings}
+                  totals={totals}
+                  onClose={() => { closeFlow(); }}
+                  showToast={showToast}
+                />
+              )}
+            </main>
+
             {flow === 'parameters' && draft && (
-              <ParametersForm
-                draft={draft}
-                setDraft={setDraft}
-                onUpdateItem={updateItem}
-                onAddItem={(item) => setDraft((d) => ({ ...d, items: [...d.items, item] }))}
-                onRemoveItem={(id) => setDraft((d) => ({ ...d, items: d.items.filter((i) => i.id !== id) }))}
-                totals={totals}
-                onGenerate={() => { saveOffer(); setFlow('preview'); }}
-              />
+              <LivePDFPanel draft={draft} settings={settings} totals={totals} />
             )}
-            {flow === 'preview' && draft && (
-              <PDFPreview
-                draft={draft}
-                settings={settings}
-                totals={totals}
-                onClose={() => { closeFlow(); }}
-                showToast={showToast}
-              />
-            )}
-          </main>
+          </div>{/* app-content-body */}
 
           {flow !== 'preview' && (
             <BottomNav tab={tab} setTab={(t) => { setTab(t); if (flow !== null) closeFlow(); }} />
@@ -2586,6 +2592,66 @@ function BottomNav({ tab, setTab }) {
 }
 
 // --------------------------------------------------------------------------
+// Live PDF preview panel (desktop split view, ≥1024px)
+// --------------------------------------------------------------------------
+function LivePDFPanel({ draft, settings, totals }) {
+  const ind = INDUSTRIES[draft.industry];
+  const items = draft.items.filter((i) => i.included !== false && Number(i.qty) > 0);
+  const containerRef = useRef(null);
+  const [scale, setScale] = useState(0.62);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.offsetWidth - 32;
+      setScale(Math.max(0.42, Math.min(w / 620, 1)));
+    };
+    update();
+    const obs = new ResizeObserver(update);
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <aside className="app-preview-panel">
+      <div style={{ padding: '14px 20px 12px', borderBottom: '1px solid #F0E8DA', background: 'white', flexShrink: 0 }}>
+        <div className="flex items-center" style={{ gap: 8 }}>
+          <Eye size={14} style={{ color: '#B8895A' }} />
+          <span className="font-semibold" style={{ fontSize: 13, color: '#5C544A' }}>Predogled ponudbe</span>
+          {items.length > 0 && (
+            <span style={{ marginLeft: 'auto', fontSize: 11, background: '#F5EDE0', color: '#9C7245', padding: '2px 10px', borderRadius: 20, fontWeight: 700 }}>
+              {fmtEUR(totals.total)}
+            </span>
+          )}
+        </div>
+      </div>
+      <div ref={containerRef} style={{ flex: 1, overflowY: 'auto', padding: '20px 16px' }}>
+        {items.length === 0 ? (
+          <div className="flex flex-col items-center justify-center" style={{ height: '100%', gap: 12, color: '#9A9088', paddingTop: 60 }}>
+            <FileText size={32} style={{ opacity: 0.3 }} />
+            <p style={{ fontSize: 13, textAlign: 'center', maxWidth: 200 }}>Vpiši količine v postavke, da se predogled posodobi.</p>
+          </div>
+        ) : (
+          <div style={{
+            background: 'white',
+            borderRadius: 8,
+            overflow: 'hidden',
+            boxShadow: '0 2px 24px -4px rgba(0,0,0,0.12)',
+            transformOrigin: 'top left',
+            transform: `scale(${scale})`,
+            width: `${Math.round(100 / scale)}%`,
+            marginBottom: `${-Math.round(620 * (1 - scale))}px`,
+          }}>
+            <PdfBody draft={draft} settings={settings} totals={totals} ind={ind} items={items} />
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+// --------------------------------------------------------------------------
 // Desktop sidebar nav
 // --------------------------------------------------------------------------
 function SideNav({ tab, setTab, settings }) {
@@ -2750,6 +2816,32 @@ function GlobalStyles() {
         .app-header-home { display: none !important; }
         .bottom-nav-mobile { display: none !important; }
         .app-main-pad { padding-bottom: 48px !important; }
+      }
+
+      /* ---- Split view: ParametersForm + live PDF preview (≥1024px) ---- */
+      .app-content-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+      .app-preview-panel { display: none; }
+
+      @media (min-width: 1024px) {
+        .app-shell-split { max-width: 1160px !important; }
+        .app-split-active { flex-direction: row !important; }
+        .app-split-active .app-main-col {
+          width: 420px;
+          flex-shrink: 0;
+          overflow-y: auto;
+          border-right: 1px solid #F0E8DA;
+        }
+        .app-preview-panel {
+          display: flex !important;
+          flex-direction: column;
+          flex: 1;
+          min-width: 0;
+          position: sticky;
+          top: 0;
+          height: 100vh;
+          overflow: hidden;
+          background: #FAF7F2;
+        }
       }
     `}</style>
   );
